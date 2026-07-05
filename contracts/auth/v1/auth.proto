@@ -1,0 +1,36 @@
+﻿// GNU AFFERO GENERAL PUBLIC LICENSE
+// Version 3, 19 November 2007
+//
+// Copyright (C) 2026 Mathew Aloisio
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+syntax = "proto3";
+
+package auth.v1;
+
+/// Handles inbound identity validation from the API gateway or client interceptors.
+message AuthenticateRequest {
+  /// Raw JWT or opaque token. Strip the "Bearer " prefix before passing here.
+  string token = 1;
+}
+
+/// Result of the validation check.
+message AuthenticateResponse {
+  /// True if token is verified, unexpired, and active.
+  bool valid = 1;
+
+  /// User's UUID. Only populated if valid is true. Fallback is empty string.
+  string user_id = 2;
+}
