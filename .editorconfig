@@ -15,6 +15,12 @@ charset = utf-8
 [*.{json,yaml,yml}]
 indent_size = 2
 
+# Protocol Buffers (Protobuf) schema definitions.
+# Enforces Google style guidelines for API contract specifications.
+[*.proto]
+indent_style = space
+indent_size = 2
+
 # Markdown format overrides. Trailing whitespace is preserved to respect 
 # markdown-spec semantic line breaks (<br> tags).
 [*.md]

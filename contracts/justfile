@@ -21,15 +21,24 @@
 # Configure the execution shell for Windows environments.
 set windows-shell := ["cmd.exe", "/c"]
 
+# Automatically formats all .proto files according to your workspace .editorconfig rules.
+format:
+    python build_contracts.py --format
+
+# Validates that all .proto files strictly conform to the workspace .editorconfig rules.
+check-format:
+    python build_contracts.py --check-format
+
 # Generates the C# files using the Python script.
 generate:
     @echo Compiling Protocol Buffers to C# source...
     python build_contracts.py
 
-# Compiles the .NET assembly (which will automatically call 'generate' via MSBuild).
-build:
+# Compiles the .NET assembly.
+build: check-format
     @echo Restoring .NET dependencies...
     dotnet restore ../dot-net-apis/OcLink.API.Contracts -p:TargetFramework=netstandard2.0
     @echo Compiling .NET Standard 2.0 API Contracts assembly...
     dotnet build ../dot-net-apis/OcLink.API.Contracts -c Release -f netstandard2.0 --no-restore
     @echo Compilation complete. Target assemblies ready for distribution.
+    
