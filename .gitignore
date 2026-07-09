@@ -18,6 +18,8 @@ Thumbs.db
 # Python (Protobuf Pipeline)
 # =========================
 /contracts/.venv/
+venv/
+env/
 __pycache__/
 *.pyc
 
@@ -34,5 +36,12 @@ __pycache__/
 # =========================
 /website/node_modules/
 /website/dist/
+
+# =========================
+# Environment & Local Config
+# =========================
 .env
 .env.local
+
+# DO NOT ignore crate-level .env files (they only contain local dev sqlx URLs)
+!/backend-services/crates/**/.env

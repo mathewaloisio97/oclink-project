@@ -1,4 +1,4 @@
-﻿// GNU AFFERO GENERAL PUBLIC LICENSE
+// GNU AFFERO GENERAL PUBLIC LICENSE
 // Version 3, 19 November 2007
 //
 // Copyright (C) 2026 Mathew Aloisio
@@ -16,21 +16,22 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-syntax = "proto3";
+//! Identity Domain Storage Models.
+//!
+//! This module defines the internal domain models and entity structures that map
+//! directly to persistent storage tables in the identity database layer. These
+//! structures remain strictly decoupled from both external gateway HTTP contracts
+//! and gRPC wire schemas.
 
-package auth.v1;
+use uuid::Uuid;
 
-/// Handles inbound identity validation from the API gateway or client interceptors.
-message AuthenticateRequest {
-  /// Raw JWT or opaque token. Strip the "Bearer " prefix before passing here.
-  string token = 1;
-}
-
-/// Result of the validation check.
-message AuthenticateResponse {
-  /// True if token is verified, unexpired, and active.
-  bool valid = 1;
-
-  /// User's UUIDv7 unique identifier. Only populated if valid is true. Fallback is empty string.
-  string user_id = 2;
+/// Represents a persistently stored Identity entity.
+#[derive(Debug, Clone)]
+pub struct User {
+    /// The globally unique identifier for the user (UUIDv7).
+    pub id: Uuid,
+    /// The username for login operations.
+    pub username: String,
+    /// The Argon2id representation of the user's password.
+    pub password_hash: String,
 }

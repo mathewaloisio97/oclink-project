@@ -1,0 +1,18 @@
+ARCH 003
+Moved dot-net-apis Generated folder (and other scripts) to Scripts/ folder (i.e., Scripts/Clients/).
+
+Created OcLink.API.Contracts Assembly: Isolated all Protobuf-generated .cs files into a dedicated class library. This acts as the single source of truth for all network schemas and prevents circular dependencies.
+
+Added MSBuild PreBuild Hook: Configured OcLink.API.Contracts.csproj to execute just build in the contracts/ directory before compiling, guaranteeing the C# compiler always sees the latest schemas.
+
+Refactored OcLink.API.Core: Introduced pure .NET Standard 2.0 agnostic adapters (IHttpAdapter, IJsonAdapter) and ApiClientBase to ensure Unity/Standalone portability without #if directives.
+
+Re-architected OcLink.API.Account: Deleted the redundant IdentityApiClient. The AccountApiClient now acts as the sole orchestrator for /register, /login, and /logout, utilizing the strongly-typed Identity.V1 and Auth.V1 Protobuf schemas natively over REST.
+
+Created Centralized Rust Contracts Crate: Established backend-services/crates/contracts using tonic-prost-build = "0.14". Features a dynamic build.rs script that globs the central workspace contracts and injects #[derive(serde::Serialize, serde::Deserialize)] for seamless HTTP Gateway JSON bridging.
+
+Enforced Workspace Dependency Pinning: Moved core networking and serialization crates (tonic, prost, tonic-prost-build) to the root Cargo.toml to prevent binary mismatches and dependency bloat across microservices.
+
+Upgraded Database Indexing Strategy: Transitioned from UUIDv4 to UUIDv7 for the primary key on the users table. This prevents severe B-Tree index fragmentation in PostgreSQL by making the IDs naturally time-sorted.
+
+Decoupled ID Generation: Removed the PostgreSQL uuid-ossp database extension dependency. UUIDv7 generation is now explicitly handled in the Rust application layer via uuid::Uuid::now_v7(), providing the backend with immediate access to the ID without waiting for a database RETURNING default.

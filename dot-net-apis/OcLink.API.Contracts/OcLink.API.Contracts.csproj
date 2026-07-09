@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <RootNamespace>OcLink.API.Contracts</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- We need the Google Protobuf library to support JSON parsing of the generated messages -->
+    <PackageReference Include="Google.Protobuf" Version="3.26.1" />
+  </ItemGroup>
+
+  <!-- Auto-Trigger Justfile before C# compilation -->
+  <Target Name="GenerateProtobufs" BeforeTargets="PreBuildEvent">
+    <Message Importance="High" Text="[OcLink] Triggering 'just generate' for Protobuf Contracts..." />
+    <Exec Command="just generate" WorkingDirectory="../../contracts" />
+  </Target>
+
+</Project>

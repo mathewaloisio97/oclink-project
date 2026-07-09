@@ -310,7 +310,7 @@ namespace Auth.V1 {
     public const int UserIdFieldNumber = 2;
     private string userId_ = "";
     /// <summary>
-    ///&#x2F; User's UUID. Only populated if valid is true. Fallback is empty string.
+    ///&#x2F; User's UUIDv7 unique identifier. Only populated if valid is true. Fallback is empty string.
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]

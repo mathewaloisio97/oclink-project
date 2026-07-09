@@ -57,6 +57,10 @@ jobs:
           components: rustfmt, clippy
 
       - name: Run Rust pipeline
+        # ENFORCE OFFLINE MODE: Tells SQLx to read the committed .sqlx folder
+        # instead of attempting to connect to a live Postgres instance.
+        env:
+          SQLX_OFFLINE: true
         run: just check-rust
 
   # --- React Web Portal ---

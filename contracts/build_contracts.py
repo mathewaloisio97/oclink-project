@@ -23,7 +23,7 @@ import sys
 
 # Define absolute paths for contracts and output destination.
 CONTRACTS_DIR = os.path.dirname(os.path.abspath(__file__))
-CSHARP_OUT = os.path.abspath(os.path.join(CONTRACTS_DIR, "../dot-net-apis/OcLink.API.Core/Generated"))
+CSHARP_OUT = os.path.abspath(os.path.join(CONTRACTS_DIR, "../dot-net-apis/OcLink.API.Contracts/Scripts/Generated"))
 
 
 def ensure_dir(path: str) -> None:

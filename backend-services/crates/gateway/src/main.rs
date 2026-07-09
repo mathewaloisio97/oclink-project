@@ -1,3 +1,5 @@
+// src/main.rs
+
 // GNU AFFERO GENERAL PUBLIC LICENSE
 // Version 3, 19 November 2007
 //
@@ -18,81 +20,104 @@
 
 //! OcLink Edge Gateway service entry point.
 //!
-//! Provides the primary API routing layer, including request validation,
-//! authentication handlers, and auto-generated OpenAPI documentation.
+//! Provides the primary stateless API routing layer. This service bridges external
+//! HTTP/REST clients to internal gRPC microservices, enforcing edge validations,
+//! rate limiting, and generating OpenAPI documentation via Utoipa.
 
-use axum::http::StatusCode;
-use axum::{routing::post, Json, Router};
-use serde::{Deserialize, Serialize};
+use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
+use oclink_contracts::identity::v1::identity_service_client::IdentityServiceClient;
+use serde_json::json;
+use std::env;
 use std::net::SocketAddr;
-use tracing::info;
-use utoipa::{OpenApi, ToSchema};
+use tonic::transport::Channel;
+use tracing::{error, info};
+use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
-/// Request payload containing credentials for user authentication.
-#[derive(Serialize, Deserialize, ToSchema)]
-pub struct AuthPayload {
-    /// The unique account username.
-    #[schema(example = "dev_user")]
-    pub username: String,
-    /// The plain-text account password.
-    #[schema(example = "example_password")]
-    pub password: String,
+mod dtos;
+mod handlers;
+
+// ============================================================================
+// Application State & Helpers
+// ============================================================================
+
+/// Maintains multiplexed, resilient gRPC channels to downstream microservices.
+#[derive(Clone)]
+pub struct AppState {
+    pub identity_client: IdentityServiceClient<Channel>,
 }
 
-/// Response payload containing the generated session credentials.
-#[derive(Serialize, Deserialize, ToSchema)]
-pub struct AuthResponse {
-    /// Cryptographically signed JWT token for authorizing subsequent requests.
-    #[schema(example = "eyJhbGciOiJIUzI1NiIsInR5c...")]
-    pub token: String,
+/// Translates internal gRPC Status codes into semantic HTTP responses with JSON bodies.
+pub fn handle_grpc_error(err: tonic::Status) -> axum::response::Response {
+    let (status, message) = match err.code() {
+        tonic::Code::AlreadyExists => (StatusCode::CONFLICT, err.message().to_string()),
+        tonic::Code::InvalidArgument => (StatusCode::BAD_REQUEST, err.message().to_string()),
+        _ => {
+            error!("Upstream gRPC fault: {:?}", err);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal server error".to_string(),
+            )
+        }
+    };
+
+    (status, Json(json!({ "error": message }))).into_response()
 }
 
-/// Authenticate a user and return an access token.
-#[utoipa::path(
-    post,
-    path = "/api/v1/login",
-    request_body = AuthPayload,
-    responses(
-        (status = 200, description = "Successfully authenticated", body = AuthResponse),
-        (status = 401, description = "Invalid credentials")
-    )
-)]
-async fn login(Json(payload): Json<AuthPayload>) -> Result<Json<AuthResponse>, StatusCode> {
-    // TODO: Implement actual password verification logic.
-    // Early return an unauthorized error if an empty password is provided.
-    if payload.password.is_empty() {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
-
-    // Generate a mock token bound to the provided username.
-    Ok(Json(AuthResponse {
-        token: format!("mock_token_for_{}", payload.username),
-    }))
-}
+// ============================================================================
+// OpenAPI Configuration & Bootstrapper
+// ============================================================================
 
 /// OpenAPI documentation schema compiler.
 #[derive(OpenApi)]
 #[openapi(
-    paths(login),
-    tags((name = "OcLink Edge Gateway", description = "OcLink Unified API"))
+    paths(handlers::identity::register, handlers::identity::login),
+    components(schemas(
+        dtos::RegisterPayload,
+        dtos::RegisterResponse,
+        dtos::LoginPayload,
+        dtos::LoginResponse
+    )),
+    tags((name = "OcLink Edge Gateway", description = "OcLink Unified REST API"))
 )]
 struct ApiDoc;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
+
+    // Ingest configuration from the environment, falling back to local dev defaults.
+    // This allows seamless integration with Docker Compose networking.
+    let identity_url =
+        env::var("IDENTITY_URL").unwrap_or_else(|_| "http://localhost:50051".to_string());
+    let server_addr = env::var("SERVER_ADDR").unwrap_or_else(|_| "0.0.0.0:3000".to_string());
+
+    info!("Connecting to Identity Subsystem at {}...", identity_url);
+
+    // Establish a resilient, multiplexed HTTP/2 channel to the Identity service.
+    let channel = Channel::from_shared(identity_url)?.connect_lazy();
+
+    let state = AppState {
+        identity_client: IdentityServiceClient::new(channel),
+    };
 
     let openapi = ApiDoc::openapi();
 
-    // Bind API endpoints and inject the OpenAPI/Swagger UI router.
     let app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", openapi))
-        .route("/api/v1/login", post(login));
+        .route("/api/v1/register", post(handlers::register))
+        .route("/api/v1/login", post(handlers::login))
+        .with_state(state);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
-    info!("Gateway online. Swagger UI available at http://localhost:3000/swagger-ui");
+    let addr: SocketAddr = server_addr.parse()?;
+    info!("Gateway REST API online at http://{}", addr);
+    info!(
+        "Swagger UI interactive documentation available at http://{}/swagger-ui",
+        addr
+    );
 
-    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
+    axum::serve(listener, app).await?;
+
+    Ok(())
 }

@@ -1,4 +1,4 @@
-﻿// GNU AFFERO GENERAL PUBLIC LICENSE
+// GNU AFFERO GENERAL PUBLIC LICENSE
 // Version 3, 19 November 2007
 //
 // Copyright (C) 2026 Mathew Aloisio
@@ -16,21 +16,19 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-syntax = "proto3";
+//! Shared API contract definitions for the OcLink ecosystem.
+//!
+//! Consolidates all auto-generated Protobuf modules and gRPC client/server
+//! stubs into a unified assembly to eliminate cross-domain circular dependencies.
 
-package auth.v1;
-
-/// Handles inbound identity validation from the API gateway or client interceptors.
-message AuthenticateRequest {
-  /// Raw JWT or opaque token. Strip the "Bearer " prefix before passing here.
-  string token = 1;
+pub mod auth {
+    pub mod v1 {
+        tonic::include_proto!("auth.v1");
+    }
 }
 
-/// Result of the validation check.
-message AuthenticateResponse {
-  /// True if token is verified, unexpired, and active.
-  bool valid = 1;
-
-  /// User's UUIDv7 unique identifier. Only populated if valid is true. Fallback is empty string.
-  string user_id = 2;
+pub mod identity {
+    pub mod v1 {
+        tonic::include_proto!("identity.v1");
+    }
 }

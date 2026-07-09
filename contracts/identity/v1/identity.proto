@@ -1,0 +1,51 @@
+// GNU AFFERO GENERAL PUBLIC LICENSE
+// Version 3, 19 November 2007
+//
+// Copyright (C) 2026 Mathew Aloisio
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+syntax = "proto3";
+
+package identity.v1;
+
+/// Manages the core identity of a user, including registration and credential
+/// verification. This service does NOT issue session tokens; it only answers
+/// questions about identity validity using Argon2id cryptographic hashing.
+service IdentityService {
+  /// Provisions a new user in the identity database.
+  /// Throws ALREADY_EXISTS if the username is taken.
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+
+  /// Verifies a user's plaintext password against their stored secure hash.
+  rpc VerifyCredentials(VerifyCredentialsRequest) returns (VerifyCredentialsResponse);
+}
+
+message CreateUserRequest {
+  /// The unique identifier chosen by the user. Must be universally unique.
+  string username = 1;
+  /// The raw plaintext password. MUST be sent over a secure TLS connection.
+  string password = 2;
+}
+
+message CreateUserResponse {
+  /// The UUIDv7 representing the new user's unique identifier.
+  string user_id = 1;
+}
+
+message VerifyCredentialsRequest {
+  /// The unique username of the account attempting to authenticate.
+  string username = 1;
+  /// The raw plaintext password provided by the user.
+  string password = 2;
+}
+
+message VerifyCredentialsResponse {
+  /// The UUIDv7 for the user. Empty if validation fails.
+  string user_id = 1;
+  /// True if the credentials matched, false otherwise.
+  bool valid = 2;
+}

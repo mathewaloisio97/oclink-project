@@ -21,12 +21,15 @@
 # Configure the execution shell for Windows environments.
 set windows-shell := ["cmd.exe", "/c"]
 
-# Compile Protocol Buffers to C# source files and build the .NET Standard 2.0 assembly.
-build:
+# Generates the C# files using the Python script.
+generate:
     @echo Compiling Protocol Buffers to C# source...
     python build_contracts.py
-    @echo Restoring .NET dependencies for Standard 2.0...
-    dotnet restore ../dot-net-apis/OcLink.API.Core -p:TargetFramework=netstandard2.0
-    @echo Compiling .NET Standard 2.0 API assembly...
-    dotnet build ../dot-net-apis/OcLink.API.Core -c Release -f netstandard2.0 --no-restore
-    @echo Compilation complete. Target assembly ready for distribution.
+
+# Compiles the .NET assembly (which will automatically call 'generate' via MSBuild).
+build:
+    @echo Restoring .NET dependencies...
+    dotnet restore ../dot-net-apis/OcLink.API.Contracts -p:TargetFramework=netstandard2.0
+    @echo Compiling .NET Standard 2.0 API Contracts assembly...
+    dotnet build ../dot-net-apis/OcLink.API.Contracts -c Release -f netstandard2.0 --no-restore
+    @echo Compilation complete. Target assemblies ready for distribution.
