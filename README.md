@@ -1,103 +1,125 @@
 # OcLink — Project Blueprint & System Architecture
 
-This repository contains the source code for **OcLink**, a distributed system consisting of a **Rust backend cluster** and decoupled **C# APIs**. 
+This repository contains the source code for **OcLink**, a distributed system consisting of a decoupled **Rust backend cluster** and pure **C# APIs**.
 
-Network contracts are managed in a centralized Protocol Buffers (Protobuf) automation pipeline to prevent data drift between the client and backend runtimes.
-
+The project utilizes a centralized Protobuf pipeline to handle contract generation. This keeps the C# clients and Rust backend microservices perfectly in sync to prevent API breaking changes.
 ---
 
 ## Repository Architecture
 
 ```text
 oclink-project/
-¦
-+-- contracts/                        # Central source of truth for all network schemas
-¦   +-- auth/v1/auth.proto            # Versioned domain contracts
-¦   +-- build_contracts.py            # Python compilation driver
-¦   +-- justfile                      # Task runner for C# generation
-¦
-+-- dot-net-apis/                     # Managed API client layer (.NET Standard 2.0)
-¦   +-- OcLink.API.Core/
-¦       +-- OcLink.API.Core.csproj    # Targets .NET Standard 2.0
-¦       +-- Generated/                # Git-ignored compilation target for C# Protobufs
-¦
-+-- backend-services/                 # Rust Microservices
-¦   +-- Cargo.toml                    # Master workspace
-¦   +-- crates/gateway                # Axum API Gateway with Utoipa (OpenAPI)
-¦   +-- Dockerfile                    # Multi-stage Docker build
-¦
-+-- website/                          # React/Vite Developer PIT Portal
+├── .github/workflows/      # CI/CD pipelines enforcing offline validation and testing
+├── backend-services/       # Rust microservice workspace (Identity, Gateway, Auth, etc.)
+├── contracts/              # Central source of truth for all network schemas (.proto)
+├── docker/                 # Infrastructure provisioning scripts (e.g., Postgres initialization)
+├── dot-net-apis/           # Managed API client layer strictly targeting .NET Standard 2.0
+├── website/                # React/Vite Developer Player Identity Token (PIT) Portal
+├── .editorconfig           # Enforces unified cross-platform formatting rules
+├── .env.example            # Master runtime configuration template
+├── docker-compose.yml      # Local development infrastructure definition
+└── justfile                # Root task runner for repository-wide pipeline automation
 ```
 
-## Developer Setup
+## Infrastructure & Development Philosophy
 
-We use `just` as our cross-platform command runner to handle builds consistently across macOS, Linux, and Windows without relying on fragmented shell scripts.
+### CI/CD Parity & Offline Compilation
+To guarantee parity between local development machines and GitHub Actions, the Rust backend enforces **SQLx Offline Mode** via `.cargo/config.toml`. Running a standard compilation (`cargo check` or `cargo build`) requires zero running infrastructure. Database schemas are validated against committed `.sqlx` cache directories, ensuring rapid, deterministic builds.
 
-### Prerequisites
-
-Ensure you have the core runtimes installed before proceeding:
-1. **Python 3.14+** 
-2. **Rust & Cargo** (Installed via [rustup.rs](https://rustup.rs/))
-3. **Docker Desktop** (or equivalent container daemon)
-4. **.NET 8 SDK**
-5. **Node.js 20+**
-6. **Protobuf Compiler (`protoc`)** *(Install via `brew install protobuf`, `apt install protobuf-compiler`, or `winget install Google.Protobuf` depending on your OS)*
-
-### Step 1: Install & Verify CLI Tools
-Open your terminal and run the following commands to install the required polyglot build tools:
-
-```bash
-# Install 'just' using Cargo (Cross-platform)
-cargo install just
-
-# Install pnpm for strict frontend dependency management
-npm install -g pnpm
-
-# Verify all installations
-just --version
-dotnet --version
-cargo --version
-pnpm --version
-protoc --version
-```
-
-### Step 2: Compile Contracts to C#
-Compile the `.proto` schemas into C# classes and build the `.NET Standard 2.0` assembly:
-```bash
-cd contracts
-just build
-```
-
-### Step 3: Environment & Infrastructure Setup
-Before starting the backend, establish your local environment variables and boot the infrastructure:
-```bash
-cd ..
-# Copy the example environment file to your local machine
-cp .env.example .env
-
-# Start PostgreSQL, RabbitMQ, Mailpit, and the Rust microservices
-docker compose up -d --build
-```
-* **Swagger OpenAPI Docs:** `http://localhost:3000/swagger-ui`
-* **Mailpit (Emails):** `http://localhost:8025`
-
-### Step 4: Start the Web Portal
-Open a new terminal window, navigate to the `website` directory, and start the Vite development server:
-```bash
-cd website
-pnpm install
-pnpm dev
-```
-* **React Web Portal:** `http://localhost:5173`
+### Passwordless Local Development
+The local PostgreSQL infrastructure utilizes `POSTGRES_HOST_AUTH_METHOD=trust`. This explicitly bypasses password authentication for localized Docker connections. This architectural decision permanently eliminates dummy credentials (e.g., `oclink_dev_pass`) from the repository's `.env` and `docker-compose.yml` files, preventing false-positive alerts from automated enterprise secret scanners (e.g., GitGuardian, GitHub Advanced Security).
 
 ---
 
-## Architecture & Project Info
+## Developer Setup
 
-* **Lead Software Engineer:** Mathew Aloisio
-* **Project Purpose:** Portfolio demonstration of low-latency, zero-allocation network state machines, cross-runtime decoupling (.NET Standard 2.0/Rust), and automated contract workflows.
+The project utilizes `just` as our cross-platform command runner. This abstracts complex build requirements and ensures consistent execution across macOS, Linux, and Windows environments.
 
-### Links & Contact
+### Prerequisites
+
+Ensure the following core runtimes are installed on your host machine:
+1. **Python 3.14+**
+2. **Rust & Cargo** (Installed via [rustup.rs](https://rustup.rs/))
+3. **Docker Desktop** (or an equivalent container daemon)
+4. **.NET 8 SDK**
+5. **Node.js 20+**
+6. **Protobuf Compiler (`protoc`)** *(Install via `brew install protobuf`, `apt install protobuf-compiler`, or `winget install Google.Protobuf`)*
+
+### Step 1: Install CLI Tooling
+Execute the following commands to install the required polyglot build utilities:
+
+```bash
+# Install 'just' and 'sqlx-cli' via Cargo
+cargo install just
+cargo install sqlx-cli --no-default-features --features rustls,postgres
+
+# Install pnpm for deterministic frontend dependency management
+npm install -g pnpm
+```
+
+### Step 2: Initialize the Environment
+Copy the example environment configuration to establish your local routing variables.
+
+```bash
+cp .env.example .env
+```
+
+### Step 3: Database Preparation & Caching
+Whenever a database schema is modified, or when initializing the repository for the first time, you must prepare the offline caches.
+
+```bash
+just db-prepare
+```
+*This command automates the entire infrastructure lifecycle: it boots the local PostgreSQL container, provisions the isolated logical databases, runs all SQL migrations, updates the `.sqlx` cache directories for the Rust compiler, and cleanly halts the container.*
+
+### Step 4: Execute the Monorepo Validation Pipeline
+To compile the Protobuf contracts into C#, build the .NET assemblies, compile the Rust backend offline, and build the React frontend, run the continuous integration simulation:
+
+```bash
+just ci
+```
+
+---
+
+## Running the Services Locally
+
+To boot the infrastructure and run the microservices for localized testing:
+
+1. **Start Infrastructure:**
+   ```bash
+   just db-up
+   ```
+   *(Boots PostgreSQL, RabbitMQ, and Mailpit in the background).*
+
+2. **Start the Edge Gateway:**
+   ```bash
+   cd backend-services
+   cargo run --bin oclink_gateway
+   ```
+   * **Swagger OpenAPI Docs:** `http://localhost:3000/swagger-ui`
+
+3. **Start the Backend Microservices (e.g., Identity):**
+   ```bash
+   cd backend-services
+   cargo run --bin oclink_identity
+   ```
+
+4. **Start the Web Portal:**
+   ```bash
+   cd website
+   pnpm dev
+   ```
+   * **React Web Portal:** `http://localhost:5173`
+   * **Mailpit (Emails):** `http://localhost:8025`
+
+---
+
+## Project & Contact Information
+
+* **Author:** Mathew Aloisio
+* **Project Purpose:** A core identity and authentication platform providing user registration, email verification, human validation checks, and secure token issuance. The system manages session security via standard access tokens alongside specialized Player Identity Tokens (PIT). Architecturally, the project demonstrates cross-runtime decoupling between a Rust backend and .NET Standard 2.0 clients using automated contract workflows.
+
+### Links
 * **Portfolio:** [mathewaloisio.com](https://mathewaloisio.com)
 * **LinkedIn:** [linkedin.com/in/mathew-aloisio-594025404](https://www.linkedin.com/in/mathew-aloisio-594025404/)
 * **Email:** [mathew.aloisio97@gmail.com](mailto:mathew.aloisio97@gmail.com)

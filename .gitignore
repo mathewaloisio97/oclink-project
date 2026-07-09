@@ -45,3 +45,8 @@ __pycache__/
 
 # DO NOT ignore crate-level .env files (they only contain local dev sqlx URLs)
 !/backend-services/crates/**/.env
+
+# =========================
+# Misc Files
+# =========================
+/CHANGELOG
