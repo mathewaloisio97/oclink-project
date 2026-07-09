@@ -47,6 +47,16 @@ __pycache__/
 !/backend-services/crates/**/.env
 
 # =========================
+# Ignore Generated .NET Files
+# =========================
+dot-net-apis/**/Generated/
+
+# =========================
+# Local Files
+# =========================
+*.local
+
+# =========================
 # Misc Files
 # =========================
 /CHANGELOG

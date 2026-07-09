@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "rootDir": "./src",
+    "rootDir": ".",
     "outDir": "./dist",
 
     "module": "nodenext",
@@ -23,10 +23,9 @@
     "moduleDetection": "force",
     "skipLibCheck": true
   },
-  "include": ["src"],
+  "include": ["src", "eslint.config.ts"],
   "exclude": [
     "node_modules",
-    "dist",
-    "eslint.config.ts"
+    "dist"
   ]
 }

@@ -1,6 +1,6 @@
 # OcLink — Project Blueprint & System Architecture
 
-This repository contains the source code for **OcLink**, a distributed system consisting of a decoupled **Rust backend cluster** and pure **C# APIs**.
+This repository contains the source code for **OcLink**, a distributed system consisting of a decoupled **Rust backend cluster** and **C# APIs**.
 
 The project utilizes a centralized Protobuf pipeline to handle contract generation. This keeps the C# clients and Rust backend microservices perfectly in sync to prevent API breaking changes.
 ---
@@ -42,7 +42,7 @@ Ensure the following core runtimes are installed on your host machine:
 2. **Rust & Cargo** (Installed via [rustup.rs](https://rustup.rs/))
 3. **Docker Desktop** (or an equivalent container daemon)
 4. **.NET 8 SDK**
-5. **Node.js 20+**
+5. **Node.js 24+**
 6. **Protobuf Compiler (`protoc`)** *(Install via `brew install protobuf`, `apt install protobuf-compiler`, or `winget install Google.Protobuf`)*
 
 ### Step 1: Install CLI Tooling
