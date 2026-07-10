@@ -1,36 +1,55 @@
-﻿// GNU AFFERO GENERAL PUBLIC LICENSE
-// Version 3, 19 November 2007
-//
-// Copyright (C) 2026 Mathew Aloisio
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published
-// by the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-syntax = "proto3";
+﻿syntax = "proto3";
 
 package auth.v1;
 
-/// Handles inbound identity validation from the API gateway or client interceptors.
+// Central session management service. Handles token generation,
+// validation, and immediate server-side revocation.
+service AuthService {
+  // Validates a session token and returns the corresponding identity.
+  rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse);
+
+  // Issues a secure session token for a validated identity.
+  rpc CreateToken(CreateTokenRequest) returns (CreateTokenResponse);
+
+  // Revokes a session token to terminate access permanently.
+  rpc RevokeToken(RevokeTokenRequest) returns (RevokeTokenResponse);
+}
+
+// Inbound token payload for validation.
 message AuthenticateRequest {
-  /// Raw JWT or opaque token. Strip the "Bearer " prefix before passing here.
+  // The unique opaque session token string.
   string token = 1;
 }
 
-/// Result of the validation check.
+// Result of the token validation check.
 message AuthenticateResponse {
-  /// True if token is verified, unexpired, and active.
+  // Returns true if the token is active, verified, and unrevoked.
   bool valid = 1;
 
-  /// User's UUIDv7 unique identifier. Only populated if valid is true. Fallback is empty string.
+  // Unique identifier (UUIDv7 string) of the associated identity. Empty if invalid is true.
   string user_id = 2;
+}
+
+// Session generation parameters.
+message CreateTokenRequest {
+  // Target identity unique identifier (UUIDv7 string).
+  string user_id = 1;
+}
+
+// Output payload containing the new session identifier.
+message CreateTokenResponse {
+  // Generated opaque session token.
+  string token = 1;
+}
+
+// Target payload for session termination.
+message RevokeTokenRequest {
+  // The opaque session token string to invalidate.
+  string token = 1;
+}
+
+// Result of the explicit revocation request.
+message RevokeTokenResponse {
+  // Returns true if the session record was identified and updated to a revoked state.
+  bool success = 1;
 }

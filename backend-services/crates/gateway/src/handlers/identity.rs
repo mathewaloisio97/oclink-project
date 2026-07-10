@@ -1,21 +1,3 @@
-// GNU AFFERO GENERAL PUBLIC LICENSE
-// Version 3, 19 November 2007
-//
-// Copyright (C) 2026 Mathew Aloisio
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published
-// by the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program. If not, see <https://www.gnu.org/licenses/>.
-
 //! Identity Domain Route Handlers.
 //!
 //! This module implements the public HTTP endpoints for user onboarding and
@@ -23,8 +5,9 @@
 //! and the internal gRPC contracts required by the Identity microservice.
 
 use crate::dtos::{LoginPayload, LoginResponse, RegisterPayload, RegisterResponse};
-use crate::{handle_grpc_error, AppState};
+use crate::{error::handle_grpc_error, state::AppState};
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use oclink_contracts::auth::v1::CreateTokenRequest;
 use oclink_contracts::identity::v1::{CreateUserRequest, VerifyCredentialsRequest};
 use serde_json::json;
 
@@ -104,14 +87,21 @@ pub async fn login(
             .into_response();
     }
 
-    // TODO: Wire up to the Auth Service to mint a real opaque session token.
-    // For now, we return a mock token so downstream clients can test the integration slice.
-    let mock_session_token = format!("mock_token_for_{}", payload.username);
+    // Request a secure session token from the Auth Subsystem.
+    let auth_req = tonic::Request::new(CreateTokenRequest {
+        user_id: verify_res.user_id,
+    });
 
+    let auth_res = match state.auth_client.create_token(auth_req).await {
+        Ok(res) => res.into_inner(),
+        Err(err) => return handle_grpc_error(err),
+    };
+
+    // Return the fully provisioned stateful token to the client.
     (
         StatusCode::OK,
         Json(LoginResponse {
-            token: mock_session_token,
+            token: auth_res.token,
         }),
     )
         .into_response()

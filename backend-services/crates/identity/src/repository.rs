@@ -1,40 +1,21 @@
-// GNU AFFERO GENERAL PUBLIC LICENSE
-// Version 3, 19 November 2007
-//
-// Copyright (C) 2026 Mathew Aloisio
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published
-// by the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-//! Database abstraction layer for user persistence.
+//! User database storage and lookup.
 //!
-//! Defines the core decoupling data-access traits and provides PostgreSQL
-//! implementation featuring automated transient-fault retries.
+//! Handles saving new users to our database and fetching them later.
+//! It includes automated logic to safely retry operations if the database
+//! experiences a temporary connection issue.
 
 use crate::errors::IdentityError;
 use crate::models::User;
 use async_trait::async_trait;
 use sqlx::PgPool;
 
-/// Data access layer interface for user identity management.
-/// Uses `async_trait` to maintain compatibility with dynamic dispatch.
+/// Defines the shared functions needed to manage user accounts in storage.
 #[async_trait]
 pub trait UserRepository: Send + Sync {
-    /// Persists a new user record. Returns `IdentityError::AlreadyExists`
-    /// if the username is taken.
+    /// Saves a new user record. Returns an error if the username is already taken.
     async fn create(&self, username: &str, password_hash: &str) -> Result<User, IdentityError>;
 
-    /// Looks up a user by their exact username. Returns `Ok(None)` if no match is found.
+    /// Looks up a user by their exact username. Returns none if no match is found.
     async fn get_by_username(&self, username: &str) -> Result<Option<User>, IdentityError>;
 }
 
@@ -44,14 +25,15 @@ pub struct PostgresUserRepository {
 }
 
 impl PostgresUserRepository {
+    /// Creates a new repository instance backed by a live database connection pool.
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 }
 
-/// Automatically retries a database operation up to 3 times with exponential backoff
-/// if it encounters a transient infrastructure failure (e.g., I/O errors or pool exhaustion).
-/// Non-transient errors (like constraint violations) fail immediately.
+/// Automatically retries a database query up to 3 times with a short pause
+/// if it hits a temporary network drop or pool timeout. It fails immediately
+/// for logic errors like invalid queries or duplicate data.
 macro_rules! with_retry {
     ($op:expr) => {{
         let mut retries = 3;
@@ -60,7 +42,7 @@ macro_rules! with_retry {
             match $op.await {
                 Ok(res) => break Ok(res),
                 Err(e) => {
-                    // Check if the error is connectivity/pool related rather than syntax or schema constraints.
+                    // Only retry on network, I/O, or connection pool timeouts.
                     let is_transient = match &e {
                         sqlx::Error::PoolTimedOut | sqlx::Error::PoolClosed => true,
                         sqlx::Error::Io(_) => true,
@@ -68,7 +50,10 @@ macro_rules! with_retry {
                     };
 
                     if is_transient && retries > 0 {
-                        tracing::warn!("Database transient failure, retrying in {:?}...", backoff);
+                        tracing::warn!(
+                            "Database hit a temporary issue, retrying in {:?}...",
+                            backoff
+                        );
                         retries -= 1;
                         tokio::time::sleep(backoff).await;
                         backoff *= 2;
@@ -83,10 +68,10 @@ macro_rules! with_retry {
 
 #[async_trait]
 impl UserRepository for PostgresUserRepository {
-    // Sensitive data (password_hash) is explicitly skipped to protect log security.
+    // The password hash is skipped here so it never accidentally leaks into system logs.
     #[tracing::instrument(skip(self, password_hash))]
     async fn create(&self, username: &str, password_hash: &str) -> Result<User, IdentityError> {
-        // Generate a time-sorted UUIDv7 to prevent Postgres B-Tree index fragmentation.
+        // Generate a time-sorted UUIDv7 to keep database search indexes fast and sequential.
         let new_user_id = uuid::Uuid::now_v7();
 
         let user = with_retry!(sqlx::query_as!(
@@ -103,8 +88,7 @@ impl UserRepository for PostgresUserRepository {
         .fetch_one(&self.pool))
         .map_err(|e| {
             if let Some(db_err) = e.as_database_error() {
-                // 23505 is the PostgreSQL code for a unique constraint violation,
-                // return a typed error.
+                // Code 23505 means a unique constraint failed (username already exists).
                 if db_err.code().as_deref() == Some("23505") {
                     return IdentityError::AlreadyExists(username.to_string());
                 }
