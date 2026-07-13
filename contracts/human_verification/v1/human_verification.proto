@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package human_verification.v1;
+
+/// Handles captcha and bot protection routines.
+service HumanVerificationService {
+  // Asks the backend to generate a new verification challenge.
+  rpc GetChallenge(GetChallengeRequest) returns (GetChallengeResponse);
+  
+  // Checks the user's submitted answer to see if they passed the challenge.
+  rpc Verify(VerifyRequest) returns (VerifyResponse);
+}
+
+/// Request details to generate a challenge.
+message GetChallengeRequest {
+  // The identifier of the provider handling the check (e.g., ArrowAlignment, Cloudflare, Turnstile).
+  string provider_id = 1;
+  
+  // Identifies a specific variation or layout layout of the challenge.
+  string edition_id = 2;
+}
+
+/// Contains the newly generated challenge data.
+message GetChallengeResponse {
+  // A raw JSON string containing the payload the frontend needs to render the challenge widget.
+  string challenge_payload_json = 1;
+}
+
+/// User submission details to verify.
+message VerifyRequest {
+  // The identifier of the provider handling the check.
+  string provider_id = 1;
+  
+  // The raw JSON token string sent back by the client widget after completion.
+  string payload_json = 2;
+}
+
+/// The result of the verification check.
+message VerifyResponse {
+  // True if the check proves the client is a real human.
+  bool success = 1;
+  
+  // A temporary validation pass string used to prove success to downstream endpoints.
+  string voucher = 2;
+}

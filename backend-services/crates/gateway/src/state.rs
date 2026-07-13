@@ -4,7 +4,9 @@
 //! immutable struct shared across all request handlers.
 
 use oclink_contracts::auth::v1::auth_service_client::AuthServiceClient;
+use oclink_contracts::human_verification::v1::human_verification_service_client::HumanVerificationServiceClient;
 use oclink_contracts::identity::v1::identity_service_client::IdentityServiceClient;
+use oclink_human_verification_crypto::CryptoEngine;
 use tonic::transport::Channel;
 
 /// Shared application state containing cloned gRPC service clients.
@@ -18,4 +20,10 @@ pub struct AppState {
 
     /// Client for the downstream Authentication microservice.
     pub auth_client: AuthServiceClient<Channel>,
+
+    /// Client for the downstream Human Verification microservice.
+    pub human_verification_client: HumanVerificationServiceClient<Channel>,
+
+    /// Cryptographic signing and token verification engine.
+    pub crypto_engine: CryptoEngine,
 }

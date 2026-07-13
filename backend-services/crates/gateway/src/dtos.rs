@@ -16,6 +16,12 @@ pub struct RegisterPayload {
     pub password: String,
 }
 
+impl RegisterPayload {
+    pub fn is_valid(&self) -> bool {
+        !self.username.trim().is_empty() && !self.password.trim().is_empty()
+    }
+}
+
 /// Response payload containing the newly registered user's Identity UUID.
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct RegisterResponse {
@@ -32,9 +38,34 @@ pub struct LoginPayload {
     pub password: String,
 }
 
+impl LoginPayload {
+    pub fn is_valid(&self) -> bool {
+        !self.username.trim().is_empty() && !self.password.trim().is_empty()
+    }
+}
+
 /// Response payload containing the generated session credentials.
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct LoginResponse {
     #[schema(example = "opaque_session_token_xyz")]
     pub token: String,
+}
+
+/// Query parameters requested by the HTTP API layout to fetch a challenge.
+#[derive(serde::Deserialize, utoipa::IntoParams, Debug)]
+pub struct ChallengeQuery {
+    /// The unique identifier of the target bot protection provider.
+    pub provider_id: String,
+    /// An optional specific iteration or layout variant of the challenge.
+    pub edition_id: Option<String>,
+}
+
+/// The inbound verification submission body transmitted by the frontend client.
+#[derive(Serialize, Deserialize, ToSchema, Debug)]
+pub struct ClientVerifyPayload {
+    /// The unique identifier of the bot protection provider handling the check.
+    #[schema(example = "arrow_alignment")]
+    pub provider_id: String,
+    /// The raw, provider-specific telemetry and token data token string.
+    pub payload: serde_json::Value,
 }

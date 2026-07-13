@@ -14,15 +14,19 @@ use serde_json::json;
 /// Register a new user account.
 ///
 /// Forwards the credentials to the Identity subsystem to generate
-/// a new UUIDv7 and securely hash the password.
+/// a new UUIDv7 and securely hash the password. Requires a valid Captcha voucher.
 #[utoipa::path(
     post,
     path = "/api/v1/register",
     request_body = RegisterPayload,
+    params(
+        ("x-captcha-voucher" = String, Header, description = "Cryptographic proof-of-humanity voucher")
+    ),
     responses(
         (status = 201, description = "User registered successfully", body = RegisterResponse),
-        (status = 409, description = "Username already in use"),
-        (status = 400, description = "Invalid payload (e.g., missing fields)")
+        (status = 400, description = "Invalid payload (e.g., missing fields)"),
+        (status = 403, description = "Missing or invalid captcha voucher"),
+        (status = 409, description = "Username already in use")
     )
 )]
 #[tracing::instrument(skip(state, payload))]
@@ -30,8 +34,15 @@ pub async fn register(
     State(mut state): State<AppState>,
     Json(payload): Json<RegisterPayload>,
 ) -> impl IntoResponse {
-    // Map the RegisterPayload DTO to the internal Protobuf
-    // CreateUserRequest contract.
+    // Fail fast if payload is invalid.
+    if !payload.is_valid() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "Username and password cannot be empty" })),
+        )
+            .into_response();
+    }
+
     let req = tonic::Request::new(CreateUserRequest {
         username: payload.username,
         password: payload.password,
@@ -59,6 +70,7 @@ pub async fn register(
     request_body = LoginPayload,
     responses(
         (status = 200, description = "Successfully authenticated", body = LoginResponse),
+        (status = 400, description = "Invalid payload (e.g., missing fields)"),
         (status = 401, description = "Invalid credentials")
     )
 )]
@@ -67,7 +79,16 @@ pub async fn login(
     State(mut state): State<AppState>,
     Json(payload): Json<LoginPayload>,
 ) -> impl IntoResponse {
-    // Verify credentials against the Identity Subsystem.
+    // Fail fast if payload is invalid.
+    if !payload.is_valid() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "Username and password cannot be empty" })),
+        )
+            .into_response();
+    }
+
+    // Verify credentials against the 'identity' subsystem.
     let verify_req = tonic::Request::new(VerifyCredentialsRequest {
         username: payload.username.clone(),
         password: payload.password,
@@ -78,7 +99,7 @@ pub async fn login(
         Err(err) => return handle_grpc_error(err),
     };
 
-    // Reject if the Identity service denies the password.
+    // Reject if the 'identity' service denies the password.
     if !verify_res.valid {
         return (
             StatusCode::UNAUTHORIZED,
@@ -87,7 +108,7 @@ pub async fn login(
             .into_response();
     }
 
-    // Request a secure session token from the Auth Subsystem.
+    // Request a secure session token from the 'auth' subsystem.
     let auth_req = tonic::Request::new(CreateTokenRequest {
         user_id: verify_res.user_id,
     });
@@ -97,7 +118,6 @@ pub async fn login(
         Err(err) => return handle_grpc_error(err),
     };
 
-    // Return the fully provisioned stateful token to the client.
     (
         StatusCode::OK,
         Json(LoginResponse {

@@ -33,7 +33,7 @@ The local PostgreSQL infrastructure utilizes `POSTGRES_HOST_AUTH_METHOD=trust`. 
 
 ## Developer Setup
 
-The project utilizes `just` as our cross-platform command runner. This abstracts complex build requirements and ensures consistent execution across macOS, Linux, and Windows environments.
+The project utilizes `just` as the cross-platform command runner. This abstracts complex build requirements and ensures consistent execution across macOS, Linux, and Windows environments.
 
 ### Prerequisites
 

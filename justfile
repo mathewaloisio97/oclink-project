@@ -4,18 +4,18 @@ set windows-shell := ["cmd.exe", "/c"]
 default:
     @just --list
 
-# Run the full validation pipeline locally.
-ci: check-contracts check-rust check-frontend
+# Run the full validation pipeline locally. (Use `just ci local-dev` to allow dev secrets)
+ci mode="prod": check-contracts (check-rust mode) check-frontend
 
 # Compile Protobuf schemas and build the .NET assembly.
 check-contracts:
     cd contracts && just build
 
 # Format, lint, and build the Rust backend.
-check-rust:
+check-rust mode="prod":
     cd backend-services && cargo fmt -- --check
     cd backend-services && cargo clippy --all-targets --all-features -- -D warnings
-    cd backend-services && cargo build --release
+    cd backend-services && cargo build --release {{ if mode == "local-dev" { "--features local-dev" } else { "" } }}
 
 # Install dependencies and build the React portal.
 check-frontend:

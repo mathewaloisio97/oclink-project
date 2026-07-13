@@ -14,3 +14,9 @@ pub mod identity {
         tonic::include_proto!("identity.v1");
     }
 }
+
+pub mod human_verification {
+    pub mod v1 {
+        tonic::include_proto!("human_verification.v1");
+    }
+}

@@ -16,19 +16,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let proto_files = &[
         contracts_root.join("auth/v1/auth.proto"),
         contracts_root.join("identity/v1/identity.proto"),
+        contracts_root.join("human_verification/v1/human_verification.proto"),
     ];
 
     // Configure and execute the Tonic build pipeline
     tonic_prost_build::configure()
         .build_server(true)
         .build_client(true)
-        // CRITICAL: We inject Serde derives globally (".") across all generated structs.
+        // Inject Serde derives globally (".") across all generated structs.
         // This allows our edge gateways to transparently serialize gRPC payloads into
         // JSON for internal HTTP telemetry and Redis caching layers.
         .type_attribute(".", "#[derive(serde::Serialize, serde::Deserialize)]")
         .compile_protos(proto_files, &[contracts_root])?;
 
-    // Optimization: Tell Cargo to rerun this script ONLY if the .proto files change.
+    // Tell Cargo to rerun this script only if the .proto files change.
     // Without this, Cargo might unnecessarily recompile this script on every build.
     for proto in proto_files {
         println!("cargo:rerun-if-changed={}", proto.display());
