@@ -3,6 +3,7 @@
 This repository contains the source code for **OcLink**, a distributed system consisting of a decoupled **Rust backend cluster** and **C# APIs**.
 
 The project utilizes a centralized Protobuf pipeline to handle contract generation. This keeps the C# clients and Rust backend microservices perfectly in sync to prevent API breaking changes.
+
 ---
 
 ## Repository Architecture
@@ -28,6 +29,9 @@ To guarantee parity between local development machines and GitHub Actions, the R
 
 ### Passwordless Local Development
 The local PostgreSQL infrastructure utilizes `POSTGRES_HOST_AUTH_METHOD=trust`. This explicitly bypasses password authentication for localized Docker connections. This architectural decision permanently eliminates dummy credentials (e.g., `oclink_dev_pass`) from the repository's `.env` and `docker-compose.yml` files, preventing false-positive alerts from automated enterprise secret scanners (e.g., GitGuardian, GitHub Advanced Security).
+
+### Secure-by-Default Configuration
+To prevent the accidental deployment of unsecure development keys into production environments, the cryptographic engine enforces a strict fail-safe mechanism. The default execution path actively monitors for fallback development secrets at boot. If detected, the application will intentionally panic and crash. To utilize localized fallback keys, developers must explicitly authorize the execution by compiling with the `local-dev` feature flag, guaranteeing that production releases remain secure by design.
 
 ---
 
@@ -76,7 +80,11 @@ just db-prepare
 To compile the Protobuf contracts into C#, build the .NET assemblies, compile the Rust backend offline, and build the React frontend, run the continuous integration simulation:
 
 ```bash
+# Standard production-ready validation
 just ci
+
+# Localized validation permitting development secrets
+just ci local-dev
 ```
 
 ---
@@ -94,14 +102,14 @@ To boot the infrastructure and run the microservices for localized testing:
 2. **Start the Edge Gateway:**
    ```bash
    cd backend-services
-   cargo run --bin oclink_gateway
+   cargo run --bin oclink_gateway --features local-dev
    ```
    * **Swagger OpenAPI Docs:** `http://localhost:3000/swagger-ui`
 
-3. **Start the Backend Microservices (e.g., Identity):**
+3. **Start the Backend Microservices (e.g., Human Verification):**
    ```bash
    cd backend-services
-   cargo run --bin oclink_identity
+   cargo run --bin oclink_human_verification --features local-dev
    ```
 
 4. **Start the Web Portal:**
