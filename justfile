@@ -33,6 +33,8 @@ db-up:
     cd backend-services/crates/identity && cargo sqlx migrate run
     @echo Running Auth Migrations...
     cd backend-services/crates/auth && cargo sqlx migrate run
+    @echo Running Email Migrations...
+    cd backend-services/crates/email && cargo sqlx migrate run
 
 # Updates the .sqlx offline caches for all microservices, then stops the DB.
 db-prepare: db-up
@@ -40,6 +42,8 @@ db-prepare: db-up
     cd backend-services/crates/identity && cargo sqlx prepare
     @echo Preparing offline cache for Auth...
     cd backend-services/crates/auth && cargo sqlx prepare
+    @echo Preparing offline cache for Email...
+    cd backend-services/crates/email && cargo sqlx prepare
     @echo Stopping Postgres...
     docker compose stop postgres
     @echo SUCCESS: Offline caches updated. You can now commit the .sqlx folders!

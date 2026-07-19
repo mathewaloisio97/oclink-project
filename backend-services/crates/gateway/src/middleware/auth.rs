@@ -16,7 +16,7 @@ use serde_json::json;
 use tracing::{error, info};
 
 /// Extracted user identifier injected into request extensions upon successful auth.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct UserId(pub String);
 
 /// Verified raw session token injected into request extensions for downstream use.

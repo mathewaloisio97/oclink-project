@@ -20,3 +20,9 @@ pub mod human_verification {
         tonic::include_proto!("human_verification.v1");
     }
 }
+
+pub mod email {
+    pub mod v1 {
+        tonic::include_proto!("email.v1");
+    }
+}

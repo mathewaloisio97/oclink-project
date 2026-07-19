@@ -4,6 +4,7 @@
 //! immutable struct shared across all request handlers.
 
 use oclink_contracts::auth::v1::auth_service_client::AuthServiceClient;
+use oclink_contracts::email::v1::email_service_client::EmailServiceClient;
 use oclink_contracts::human_verification::v1::human_verification_service_client::HumanVerificationServiceClient;
 use oclink_contracts::identity::v1::identity_service_client::IdentityServiceClient;
 use oclink_human_verification_crypto::CryptoEngine;
@@ -23,6 +24,9 @@ pub struct AppState {
 
     /// Client for the downstream Human Verification microservice.
     pub human_verification_client: HumanVerificationServiceClient<Channel>,
+
+    /// Client for the downstream Email microservice.
+    pub email_client: EmailServiceClient<Channel>,
 
     /// Cryptographic signing and token verification engine.
     pub crypto_engine: CryptoEngine,

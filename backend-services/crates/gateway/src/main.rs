@@ -7,6 +7,8 @@
 use axum::Router;
 use oclink_constants::security::DEFAULT_HV_SECRET;
 use oclink_contracts::auth::v1::auth_service_client::AuthServiceClient;
+use oclink_contracts::email::v1::email_service_client::EmailServiceClient;
+use oclink_contracts::human_verification::v1::human_verification_service_client::HumanVerificationServiceClient;
 use oclink_contracts::identity::v1::identity_service_client::IdentityServiceClient;
 use oclink_gateway::{dtos, handlers, routes, state::AppState};
 use std::env;
@@ -45,17 +47,25 @@ impl Modify for SecurityAddon {
         handlers::identity::login,
         handlers::auth::logout,
         handlers::human_verification::get_challenge,
-        handlers::human_verification::verify
+        handlers::human_verification::verify,
+        handlers::email::get_email,
+        handlers::email::set_email,
+        handlers::email::verify_email
     ),
     components(schemas(
         dtos::RegisterPayload,
         dtos::RegisterResponse,
         dtos::LoginPayload,
         dtos::LoginResponse,
-        dtos::ClientVerifyPayload
+        dtos::ClientVerifyPayload,
+        dtos::EmailStateResponse,
+        dtos::SetEmailPayload,
+        dtos::SetEmailResponse,
+        dtos::VerifyEmailPayload,
+        dtos::VerifyEmailResponse
     )),
     modifiers(&SecurityAddon),
-    tags((name = "OcLink Edge Gateway", description = "OcLink Unified REST API"))
+    tags((name = "OcLink Edge Gateway", description = "OcLink REST API"))
 )]
 struct ApiDoc;
 
@@ -72,9 +82,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let auth_url = env::var("AUTH_URL").unwrap_or_else(|_| "http://localhost:50052".to_string());
     let hv_url =
         env::var("HUMAN_VERIFICATION_URL").unwrap_or_else(|_| "http://localhost:50055".to_string());
-    let server_addr = env::var("SERVER_ADDR").unwrap_or_else(|_| "0.0.0.0:3000".to_string());
     let hv_secret =
         env::var("HUMAN_VERIFICATION_SECRET").unwrap_or_else(|_| DEFAULT_HV_SECRET.to_string());
+    let email_url = env::var("EMAIL_URL").unwrap_or_else(|_| "http://localhost:50053".to_string());
+    let server_addr = env::var("SERVER_ADDR").unwrap_or_else(|_| "0.0.0.0:3000".to_string());
 
     // Verify the integrity of the cryptographic validation keys. Allowing fallback
     // credentials is restricted to builds explicitly compiling with the "local-dev" feature.
@@ -108,6 +119,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let hv_channel = Channel::from_shared(hv_url)?.connect_lazy();
 
+    // Establish a lazy multiplexed channel to the Email service.
+    info!("Connecting to Email Subsystem at {}...", email_url);
+    let email_channel = Channel::from_shared(email_url)?.connect_lazy();
+
     // Initialize the stateless cryptography engine for validating Captcha vouchers at the edge.
     let crypto_engine = oclink_human_verification_crypto::CryptoEngine::new(hv_secret.as_bytes());
 
@@ -115,7 +130,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = AppState {
         identity_client: IdentityServiceClient::new(identity_channel),
         auth_client: AuthServiceClient::new(auth_channel),
-        human_verification_client: oclink_contracts::human_verification::v1::human_verification_service_client::HumanVerificationServiceClient::new(hv_channel),
+        human_verification_client: HumanVerificationServiceClient::new(hv_channel),
+        email_client: EmailServiceClient::new(email_channel),
         crypto_engine,
     };
 
@@ -126,7 +142,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", openapi))
         .merge(routes::identity::build_router(state.clone()))
         .merge(routes::auth::build_router(state.clone()))
-        .merge(routes::human_verification::build_router(state.clone()));
+        .merge(routes::human_verification::build_router(state.clone()))
+        .merge(routes::email::build_router(state.clone()));
 
     // Open network port listener and begin serving client traffic.
     let addr: SocketAddr = server_addr.parse()?;

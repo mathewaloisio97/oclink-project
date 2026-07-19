@@ -17,6 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         contracts_root.join("auth/v1/auth.proto"),
         contracts_root.join("identity/v1/identity.proto"),
         contracts_root.join("human_verification/v1/human_verification.proto"),
+        contracts_root.join("email/v1/email.proto"),
     ];
 
     // Configure and execute the Tonic build pipeline
