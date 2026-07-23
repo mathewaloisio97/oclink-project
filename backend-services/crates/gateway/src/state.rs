@@ -3,6 +3,7 @@
 //! Stores downstream clients and network connections in a thread-safe,
 //! immutable struct shared across all request handlers.
 
+use oclink_contracts::access_tokens::v1::access_tokens_service_client::AccessTokensServiceClient;
 use oclink_contracts::auth::v1::auth_service_client::AuthServiceClient;
 use oclink_contracts::email::v1::email_service_client::EmailServiceClient;
 use oclink_contracts::human_verification::v1::human_verification_service_client::HumanVerificationServiceClient;
@@ -27,6 +28,9 @@ pub struct AppState {
 
     /// Client for the downstream Email microservice.
     pub email_client: EmailServiceClient<Channel>,
+
+    /// Client for the downstream Access Tokens microservice.
+    pub access_tokens_client: AccessTokensServiceClient<Channel>,
 
     /// Cryptographic signing and token verification engine.
     pub crypto_engine: CryptoEngine,

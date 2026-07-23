@@ -6,6 +6,7 @@
 
 use axum::Router;
 use oclink_constants::security::DEFAULT_HV_SECRET;
+use oclink_contracts::access_tokens::v1::access_tokens_service_client::AccessTokensServiceClient;
 use oclink_contracts::auth::v1::auth_service_client::AuthServiceClient;
 use oclink_contracts::email::v1::email_service_client::EmailServiceClient;
 use oclink_contracts::human_verification::v1::human_verification_service_client::HumanVerificationServiceClient;
@@ -85,6 +86,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let hv_secret =
         env::var("HUMAN_VERIFICATION_SECRET").unwrap_or_else(|_| DEFAULT_HV_SECRET.to_string());
     let email_url = env::var("EMAIL_URL").unwrap_or_else(|_| "http://localhost:50053".to_string());
+    let access_tokens_url =
+        env::var("ACCESS_TOKENS_URL").unwrap_or_else(|_| "http://localhost:50054".to_string());
     let server_addr = env::var("SERVER_ADDR").unwrap_or_else(|_| "0.0.0.0:3000".to_string());
 
     // Verify the integrity of the cryptographic validation keys. Allowing fallback
@@ -123,6 +126,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Connecting to Email Subsystem at {}...", email_url);
     let email_channel = Channel::from_shared(email_url)?.connect_lazy();
 
+    // Establish a lazy multiplexed channel to the Access Tokens service.
+    info!(
+        "Connecting to Access Tokens Subsystem at {}...",
+        access_tokens_url
+    );
+    let access_tokens_channel = Channel::from_shared(access_tokens_url)?.connect_lazy();
+
     // Initialize the stateless cryptography engine for validating Captcha vouchers at the edge.
     let crypto_engine = oclink_human_verification_crypto::CryptoEngine::new(hv_secret.as_bytes());
 
@@ -132,6 +142,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         auth_client: AuthServiceClient::new(auth_channel),
         human_verification_client: HumanVerificationServiceClient::new(hv_channel),
         email_client: EmailServiceClient::new(email_channel),
+        access_tokens_client: AccessTokensServiceClient::new(access_tokens_channel),
         crypto_engine,
     };
 

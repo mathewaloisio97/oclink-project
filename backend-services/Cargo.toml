@@ -26,3 +26,6 @@ thiserror = "2"
 async-trait = "0.1"
 base64 = "0.22"
 sha2 = "0.11"
+jsonwebtoken = "10.4"
+rsa = "0.10.0-rc.17"
+pkcs8 = { version = "0.11", features = ["pem", "std"] }

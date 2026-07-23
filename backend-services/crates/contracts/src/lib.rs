@@ -26,3 +26,9 @@ pub mod email {
         tonic::include_proto!("email.v1");
     }
 }
+
+pub mod access_tokens {
+    pub mod v1 {
+        tonic::include_proto!("access_tokens.v1");
+    }
+}
